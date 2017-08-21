@@ -96,7 +96,7 @@ computeFrobenius(List) := (generators) -> (
 end--
 restart
 load "ng.m2"
-L = new List from {3,5}
+L = new List from {2,3}
 n1 = new NumericalSemigroup from numericalSemigroup L
 frobeniusNumber n1
 g = gaps n1
