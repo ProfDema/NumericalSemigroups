@@ -153,7 +153,7 @@ reducedGaps(NumericalSemigroup) := nsg -> (
 
 generatePSR=method()
 generatePSR(NumericalSemigroup) := nsg -> (
-    result := new List from {{0,1}};
+    result := new List from {};
     rgaps = sort(reducedGaps(nsg), DegreeOrder=>Descending);
     gnrs = new List from genSG nsg;
     for subset in subsets rgaps do (
@@ -164,38 +164,23 @@ generatePSR(NumericalSemigroup) := nsg -> (
 	if not member(ln, result) then result = append(result, ln);
 	--print result;
     );
+    result = append(result, {0,1});
     return result
 )
 
 cmpLead = method()
 cmpLead(List, List) := (L1, L2) -> (
     result := false;
-    if #L1 < #L2 then (
-	test := true;
-	i := 0;
-	while i < #L1-1 do (
-	     test = test and L1#i == L2#i;
-	     i = i + 1;
-	);
-        result = test and L1#(#L1-1) >= L2#(#L2-1);
-    );
-    if #L1 == #L2 then (
-       i :=0;
-       test := true;
-       while i < #L1-1 and not result do (
-	  test = test and L1#i == L2#i; 
-	  i = i +1;
+    lastL1Item = L1#(#L1-1);
+    lastL2Item = L2#(#L2-1);
+    if lastL1Item >= lastL2Item then (
+       result = true;
+       ix := 0;
+       while ix < #L1 - 1 and result do (
+	   if L1#ix < lastL2Item then result = member(L1#ix, L2);
+	   ix = ix + 1;
        );
-       if test then test = L1#(#L1-1) >= L2#(#L1-1);
-       result = test;	
     );
-    if #L1 > #L2 then (
-       test := true;
-       for i from 0 to #L2-1 do
-          test = test and L1#i == L2#i;
-       result = test;	
-    );
-    if #L1 < #L2 then result = isSubset(L1, L2);
     return result
 )
 
@@ -203,8 +188,13 @@ ringChains=method()
 ringChains(NumericalSemigroup) := nsg -> (
     psr := generatePSR nsg;
     pst = poset(psr, cmpLead);
-    chn = maximalChains pst;
-    return chn
+    chn = chains pst;
+    chns = new List from {};
+    for lst in chn do
+        if #lst > 1 then
+           if lst#0 == psr#0 and #lst > 2 and lst#(#lst-1) == {0,1} then 
+	      chns = append(chns, lst);
+    return chns
 )  
 end--
 restart
@@ -213,13 +203,25 @@ L = new List from {3,7,8}
 n1 = new NumericalSemigroup from numericalSemigroup L
 showNSG n1
 g2 = generatePSR n1
---r = ringChains n1
-for i from 0 to #g2-1 do (
-    for j from 0 to #g2-1 do (
-	if i=!=j then (
-	    print concatenate(toString i," and ",toString j);
-	    print cmpLead(g2#i,g2#j);
-	    print cmpLead(g2#j,g2#i);
-	);
-    );
-)
+r = ringChains n1
+n2 = new NumericalSemigroup from numericalSemigroup {3,4,5}
+r2 = ringChains n2
+restart
+R = ZZ/101[x,y,z, Degrees=>{3,4,5}]
+--(R1, f1) = selectVariables({0,1,2},R)
+--describe R1
+--(R2, f2) = selectVariables({3},R)
+--describe R2
+--(R3, f3) = selectVariables({4}, R)
+--describe R3
+--random(6,R) --random element of 6 degree
+--(R4, f4) = selectVariables({1}, R)
+--MR1 = module R1
+--MR4 = module R4
+-- P1 = MR1 ++ MR4 ++ MR4 ->no common ring
+--describe MR1
+-- m1 = matrix {{vars R1, vars R4, vars R4}} -> no common ring
+I1=ideal(y*y-x*z,y*z-x^3,z^2-x^2*y)
+R1 = R/I1 --R1 looks like k[t^3,t^4,t^5]
+vars R1
+peek vars R1
