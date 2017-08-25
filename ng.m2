@@ -1,3 +1,4 @@
+loadPackage"Posets"
 NumericalSemigroup = new Type of MutableHashTable
 numericalSemigroup = method()
 numericalSemigroup(List):= numsgGens -> (
@@ -6,7 +7,11 @@ numericalSemigroup(List):= numsgGens -> (
     nsg#"frobNum" = result#0;
     nsg#"gaps" = result#1;
     nsg#"lead" = result#2;
+    nsg#"generators" = numsgGens;
     return nsg)
+
+genSG = method()
+genSG(NumericalSemigroup) := nsg -> nsg#"generators"
 
 frobeniusNumber = method()
 frobeniusNumber(NumericalSemigroup) := nsg -> nsg#"frobNum"
@@ -19,13 +24,23 @@ lead(NumericalSemigroup) := nsg -> nsg#"lead"
 
 showNSG = method()
 showNSG(NumericalSemigroup) := nsg -> (
-   fb = toString frobeniusNumber nsg;
-   fb = concatenate("Frobenius number: ", fb, "\nGaps: ");
+   fbr = toString frobeniusNumber nsg;
    gp = sort new List from gaps nsg;
-   for ix from 0 to #gp-1 do (
-      fb = if (ix < #gp-1) then concatenate(fb, toString gp#ix, ",")  else concatenate(fb, toString gp#ix, "\n");
+   ld = sort new List from lead nsg;
+   gns = new List from genSG nsg;
+   fb = "Generators: ";
+   for ix from 0 to #gns-1 do (
+       fb = if (ix < #gns-1) then concatenate(fb, toString gns#ix, ", ") else concatenate(fb, toString gns#ix);
    );
-   return net fb
+   fb = concatenate(fb, "\nFrobenius : ", fbr, "\nGaps: ");
+   for ix from 0 to #gp-1 do (
+      fb = if (ix < #gp-1) then concatenate(fb, toString gp#ix, ", ")  else concatenate(fb, toString gp#ix);
+   );
+   fb = concatenate(fb, "\nLead: ");
+   for ix from 0 to #ld-1 do (
+       fb = if (ix < #ld-1) then concatenate(fb, toString ld#ix, ", ") else concatenate(fb, toString ld#ix);
+   );
+   return peek net fb
 )
 
 -- Private methods
@@ -45,7 +60,6 @@ computeFrobenius(List) := (generators) -> (
    for i from 1 to ngen-1 do (
       geni := generators#i;
       if geni%gen1 =!= 0 then (
-	  print geni;
 	 elim := false;
          for j from 1 to i-1 do (
 	     if (geni-generators#j)%gen1 == 0 then elim = true;
@@ -107,7 +121,6 @@ computeFrobenius(List) := (generators) -> (
    for L from 1 to a1-1 do (
        if F#L > maxF then maxF = F#L;
    );
-   for y in F do print y;
    --Frobenius number
    frobenius := maxF - a1;
    --Gaps
@@ -131,13 +144,82 @@ computeFrobenius(List) := (generators) -> (
    return (frobenius, gaps, lead)
  )
 
+--
+reducedGaps=method()
+reducedGaps(NumericalSemigroup) := nsg -> (
+    L = {};
+    for x in gaps nsg do if x =!= 1 then L = append(L,x);
+    return L)
 
+generatePSR=method()
+generatePSR(NumericalSemigroup) := nsg -> (
+    result := new List from {{0,1}};
+    rgaps = sort(reducedGaps(nsg), DegreeOrder=>Descending);
+    gnrs = new List from genSG nsg;
+    for subset in subsets rgaps do (
+        g := sort new List from subset | gnrs;
+	n := new NumericalSemigroup from numericalSemigroup g;
+	ln := new List from lead n;
+	--print ln;
+	if not member(ln, result) then result = append(result, ln);
+	--print result;
+    );
+    return result
+)
+
+cmpLead = method()
+cmpLead(List, List) := (L1, L2) -> (
+    result := false;
+    if #L1 < #L2 then (
+	test := true;
+	i := 0;
+	while i < #L1-1 do (
+	     test = test and L1#i == L2#i;
+	     i = i + 1;
+	);
+        result = test and L1#(#L1-1) >= L2#(#L2-1);
+    );
+    if #L1 == #L2 then (
+       i :=0;
+       test := true;
+       while i < #L1-1 and not result do (
+	  test = test and L1#i == L2#i; 
+	  i = i +1;
+       );
+       if test then test = L1#(#L1-1) >= L2#(#L1-1);
+       result = test;	
+    );
+    if #L1 > #L2 then (
+       test := true;
+       for i from 0 to #L2-1 do
+          test = test and L1#i == L2#i;
+       result = test;	
+    );
+    if #L1 < #L2 then result = isSubset(L1, L2);
+    return result
+)
+
+ringChains=method()
+ringChains(NumericalSemigroup) := nsg -> (
+    psr := generatePSR nsg;
+    pst = poset(psr, cmpLead);
+    chn = maximalChains pst;
+    return chn
+)  
 end--
 restart
 load "ng.m2"
 L = new List from {3,7,8}
 n1 = new NumericalSemigroup from numericalSemigroup L
-frobeniusNumber n1
 showNSG n1
-
-
+g2 = generatePSR n1
+--r = ringChains n1
+for i from 0 to #g2-1 do (
+    for j from 0 to #g2-1 do (
+	if i=!=j then (
+	    print concatenate(toString i," and ",toString j);
+	    print cmpLead(g2#i,g2#j);
+	    print cmpLead(g2#j,g2#i);
+	);
+    );
+)
